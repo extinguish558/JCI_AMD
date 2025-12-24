@@ -1,0 +1,7 @@
+{
+  "name": "會員系統_測試版",
+  "description": "Advanced member directory query system with complex role-based sorting and filtering.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
