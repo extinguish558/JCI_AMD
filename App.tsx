@@ -7,7 +7,7 @@ import LoginForm from './components/LoginForm';
 import AdminDashboard from './components/AdminDashboard';
 import { Member, MemberType, Chapter, AuthUser } from './types';
 import { db, isFirebaseReady } from './lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 
 const ITEMS_PER_PAGE = 24; 
 
@@ -34,8 +34,6 @@ const App: React.FC = () => {
       querySnapshot.forEach((doc) => {
         cloudData.push(doc.data() as Member);
       });
-      
-      // 如果雲端資料庫有東西，則以雲端為主；如果是空的，初次使用維持 Mock 資料
       if (cloudData.length > 0) {
         setMembers(cloudData);
       }
@@ -52,18 +50,25 @@ const App: React.FC = () => {
     fetchCloudData();
   }, [fetchCloudData]);
 
-  useEffect(() => {
-    setVisibleCount(ITEMS_PER_PAGE);
-  }, [currentChapter, searchTerm, activeTab, birthdayMonth]);
+  const handleUpdateAllMembers = async (updatedMembers: Member[]) => {
+    setMembers(updatedMembers);
+    if (db) {
+      try {
+        const batch = writeBatch(db);
+        updatedMembers.forEach(m => {
+          const ref = doc(db, "members", m.id);
+          batch.set(ref, m);
+        });
+        await batch.commit();
+      } catch (e) {
+        console.error("批次更新失敗:", e);
+      }
+    }
+  };
 
   const handleLogin = (user: AuthUser) => {
     setCurrentUser(user);
     setView('ADMIN');
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setView('HOME');
   };
 
   const handleUpdateMember = async (updatedMember: Member) => {
@@ -72,7 +77,7 @@ const App: React.FC = () => {
       try {
         await setDoc(doc(db, "members", updatedMember.id), updatedMember);
       } catch (e) {
-        alert("存檔失敗，請檢查網路連線或 Firebase 規則");
+        console.error("存檔失敗");
       }
     }
   };
@@ -83,7 +88,7 @@ const App: React.FC = () => {
       try {
         await setDoc(doc(db, "members", newMember.id), newMember);
       } catch (e) {
-        alert("新增失敗，請檢查權限");
+        console.error("新增失敗");
       }
     }
   };
@@ -94,7 +99,7 @@ const App: React.FC = () => {
       try {
         await deleteDoc(doc(db, "members", id));
       } catch (e) {
-        alert("刪除失敗");
+        console.error("刪除失敗");
       }
     }
   };
@@ -132,16 +137,6 @@ const App: React.FC = () => {
   const sortedMembers = useMemo(() => sortMembers(filteredMembers), [filteredMembers]);
   const paginatedMembers = useMemo(() => sortedMembers.slice(0, visibleCount), [sortedMembers, visibleCount]);
 
-  const renderSectionHeader = (title: string, count: number, iconPath: string) => (
-    <div className="col-span-full mt-10 mb-4 flex items-center border-b-2 border-slate-200 pb-3">
-      <div className="bg-slate-900 rounded-lg p-2 mr-4 text-white shadow-lg">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} /></svg>
-      </div>
-      <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
-      <span className="ml-4 px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-[11px] font-black border border-slate-300">{count} 人</span>
-    </div>
-  );
-
   const getMemberGroup = (m: Member) => {
     if (m.currentRole) return m.currentRole.rankInRole <= 40 ? 'BOARD' : 'COMMITTEE';
     return m.type === MemberType.YB ? 'YB' : 'SENIOR';
@@ -152,13 +147,24 @@ const App: React.FC = () => {
       <AdminDashboard 
         user={currentUser}
         members={members}
-        onLogout={handleLogout}
+        onLogout={() => { setCurrentUser(null); setView('HOME'); }}
         onUpdateMember={handleUpdateMember}
         onDeleteMember={handleDeleteMember}
         onCreateMember={handleCreateMember}
+        onUpdateAllMembers={handleUpdateAllMembers}
       />
     );
   }
+
+  const renderSectionHeader = (title: string, count: number, iconPath: string) => (
+    <div className="col-span-full mt-10 mb-4 flex items-center border-b-2 border-slate-200 pb-3">
+      <div className="bg-slate-900 rounded-lg p-2 mr-4 text-white shadow-lg">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} /></svg>
+      </div>
+      <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
+      <span className="ml-4 px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-[11px] font-black border border-slate-300">{count} 人</span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-900 pb-24 relative">
@@ -166,7 +172,6 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center">
            <div className="animate-spin h-14 w-14 border-4 border-blue-600 border-t-transparent rounded-full mb-6"></div>
            <p className="font-black text-slate-900 text-xl tracking-tight">名錄系統啟動中...</p>
-           <p className="text-slate-400 text-sm mt-2">正在載入雲端資料庫最新資訊</p>
         </div>
       )}
 
@@ -179,14 +184,7 @@ const App: React.FC = () => {
             <button onClick={() => setCurrentChapter('南投分會')} className={`px-4 py-1.5 rounded-md text-xs font-black transition-all ${currentChapter === '南投分會' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>南投分會</button>
           </div>
           <div className="flex items-center space-x-3">
-             {isCloudMode && (
-               <div className="hidden sm:flex items-center text-[10px] font-black text-green-400 bg-green-400/10 px-3 py-1.5 rounded-full border border-green-400/20">
-                 <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse mr-2"></span>
-                 CLOUD SYNCED
-               </div>
-             )}
              <button onClick={() => setView('LOGIN')} className="bg-slate-800 hover:bg-slate-700 px-4 py-1.5 rounded-lg text-xs text-slate-300 font-bold transition-colors flex items-center border border-slate-700">
-               <svg className="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
                後台管理
              </button>
           </div>
@@ -227,19 +225,11 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-10">
-        {!isCloudMode && (
-          <div className="mb-8 bg-yellow-50 border border-yellow-200 p-4 rounded-2xl flex items-center text-yellow-800 text-sm font-bold">
-            <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.268 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            注意：目前連線至預覽資料。若要正式啟用雲端同步，請確保 Firebase Rules 已設為允許讀寫。
-          </div>
-        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {paginatedMembers.length === 0 ? (
             <div className="col-span-full py-32 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 shadow-sm">
               <div className="text-6xl mb-4">🔍</div>
               <h3 className="text-xl font-black text-slate-800">查無相符資料</h3>
-              <p className="text-slate-500 font-bold mt-2">請嘗試更換搜尋關鍵字</p>
-              <button onClick={() => { setSearchTerm(''); setBirthdayMonth(''); setActiveTab('ALL'); }} className="mt-6 px-8 py-2.5 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 shadow-lg transition-transform active:scale-95">重置搜尋條件</button>
             </div>
           ) : (
              paginatedMembers.map((member, index) => {
@@ -265,14 +255,6 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
-
-      {/* 回到頂部按鈕 */}
-      <button 
-        onClick={() => window.scrollTo({top:0, behavior:'smooth'})}
-        className="fixed bottom-8 right-8 bg-slate-900 text-white p-4 rounded-2xl shadow-2xl z-40 hover:bg-slate-800 transition-all active:scale-90"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-      </button>
     </div>
   );
 };

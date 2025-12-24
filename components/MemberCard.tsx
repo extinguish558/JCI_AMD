@@ -36,8 +36,8 @@ const MemberCard: React.FC<MemberCardProps> = ({ member }) => {
             </span>
           </div>
           {member.englishName && <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-0.5">{member.englishName}</p>}
-          <p className="text-xs font-bold text-slate-600 truncate mt-1">{member.currentRole?.roleName || member.title || '會員'}</p>
-          <p className="text-[11px] font-medium text-slate-400 truncate mt-0.5">{member.company || '未填寫公司'}</p>
+          <p className="text-xs font-black text-blue-600 truncate mt-1">{member.jciTitle || member.currentRole?.roleName || 'YB 青商'}</p>
+          <p className="text-[11px] font-bold text-slate-400 truncate mt-0.5">{member.company ? `${member.company} ${member.title || ''}` : '未填寫現職'}</p>
         </div>
       </div>
 
@@ -73,22 +73,28 @@ const MemberCard: React.FC<MemberCardProps> = ({ member }) => {
               <span className="font-bold text-slate-700">{member.companyPhone}</span>
             </div>
           )}
-          {member.email && (
-            <div className="flex flex-col gap-1">
-              <span className="font-black text-slate-400 uppercase tracking-widest">Email</span>
-              <span className="font-bold text-slate-700 break-all">{member.email}</span>
-            </div>
-          )}
           {member.birthday && (
             <div className="flex items-center justify-between">
               <span className="font-black text-slate-400 uppercase tracking-widest">Birthday</span>
               <span className="font-bold text-slate-700">{getBirthdayDisplay(member.birthday)}</span>
             </div>
           )}
+          {member.spouseName && (
+            <div className="flex items-center justify-between">
+              <span className="font-black text-blue-400 uppercase tracking-widest">夫人/姑爺</span>
+              <span className="font-bold text-slate-700">{member.spouseName}</span>
+            </div>
+          )}
           {member.address && (
             <div className="flex flex-col gap-1">
               <span className="font-black text-slate-400 uppercase tracking-widest">Address</span>
-              <span className="font-bold text-slate-700">{member.address}</span>
+              <span className="font-bold text-slate-700 leading-relaxed">{member.address}</span>
+            </div>
+          )}
+          {member.remark && (
+            <div className="flex flex-col gap-1 pt-2 border-t border-slate-200/50">
+              <span className="font-black text-slate-400 uppercase tracking-widest">Remark / 備註</span>
+              <span className="font-medium text-slate-600 italic leading-relaxed">{member.remark}</span>
             </div>
           )}
         </div>

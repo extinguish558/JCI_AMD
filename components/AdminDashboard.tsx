@@ -4,7 +4,7 @@ import { Member, AuthUser, Chapter, MemberType } from '../types';
 import MemberEditor from './MemberEditor';
 import BatchImportModal from './BatchImportModal';
 import BulkPhotoSync from './BulkPhotoSync';
-import { isFirebaseReady } from '../lib/firebase';
+import OrganizationManager from './OrganizationManager';
 import { exportToCSV } from '../utils/exportUtils';
 
 interface AdminDashboardProps {
@@ -14,6 +14,7 @@ interface AdminDashboardProps {
   onUpdateMember: (member: Member) => void;
   onDeleteMember: (id: string) => void;
   onCreateMember: (member: Member) => void;
+  onUpdateAllMembers: (members: Member[]) => Promise<void>;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
@@ -22,12 +23,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onLogout, 
   onUpdateMember, 
   onDeleteMember,
-  onCreateMember
+  onCreateMember,
+  onUpdateAllMembers
 }) => {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isBatchImporting, setIsBatchImporting] = useState(false);
   const [isPhotoSyncing, setIsPhotoSyncing] = useState(false);
+  const [isOrgManaging, setIsOrgManaging] = useState(false);
   const [filterText, setFilterText] = useState('');
 
   const [adminChapter, setAdminChapter] = useState<Chapter>(user.managedChapter || '嘉義分會');
@@ -49,8 +52,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   }, [members, adminChapter, adminType, filterText]);
 
-  const handleBatchImport = (newMembers: Member[]) => {
-    newMembers.forEach(m => onCreateMember(m));
+  const handleBatchImport = async (newMembers: Member[]) => {
+    let updatedCount = 0;
+    let createdCount = 0;
+
+    for (const incoming of newMembers) {
+      const existing = members.find(m => m.name === incoming.name && m.chapter === adminChapter);
+      if (existing) {
+        onUpdateMember({
+          ...existing,
+          ...incoming,
+          id: existing.id,
+          avatarUrl: existing.avatarUrl
+        });
+        updatedCount++;
+      } else {
+        onCreateMember(incoming);
+        createdCount++;
+      }
+    }
+    alert(`✅ 同步完成！\n- 更新現有會員：${updatedCount} 位\n- 新增會員：${createdCount} 位`);
   };
 
   const handleBulkPhotoUpdate = async (updates: Partial<Member>[]) => {
@@ -60,11 +81,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onUpdateMember({ ...fullMember, avatarUrl: update.avatarUrl });
       }
     }
-  };
-
-  const handleExportCSV = () => {
-    const filename = `${adminChapter}_名錄備份_${new Date().toISOString().split('T')[0]}.csv`;
-    exportToCSV(visibleMembers, filename);
   };
 
   return (
@@ -77,7 +93,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <h1 className="font-bold text-lg hidden sm:block">後台管理：{adminChapter}</h1>
           </div>
-          <button onClick={onLogout} className="text-sm bg-slate-800 hover:bg-red-600 px-5 py-2 rounded-xl border border-slate-700 transition-all font-bold">登出系統</button>
+          <button onClick={onLogout} className="text-sm bg-slate-800 hover:bg-red-600 px-5 py-2 rounded-xl border border-slate-700 transition-all font-black">登出系統</button>
         </div>
       </div>
 
@@ -86,33 +102,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="flex items-center p-1 bg-slate-100 rounded-xl space-x-1">
             {isSuperAdmin ? (
               (['嘉義分會', '南投分會'] as Chapter[]).map(ch => (
-                <button key={ch} onClick={() => setAdminChapter(ch)} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${adminChapter === ch ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-white'}`}>{ch}</button>
+                <button key={ch} onClick={() => setAdminChapter(ch)} className={`px-6 py-2 rounded-lg text-sm font-black transition-all ${adminChapter === ch ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-white'}`}>{ch}</button>
               ))
-            ) : <div className="px-6 py-2 bg-white text-blue-700 rounded-lg text-sm font-black shadow-sm">{adminChapter}</div>}
+            ) : <div className="px-6 py-2 bg-white text-blue-800 rounded-lg text-sm font-black shadow-sm">{adminChapter}</div>}
           </div>
           <div className="flex bg-slate-100 p-1 rounded-xl mt-3 md:mt-0">
             {[MemberType.YB, MemberType.SENIOR].map(t => (
-              <button key={t} onClick={() => setAdminType(t)} className={`px-8 py-2 rounded-lg text-sm font-bold transition-all ${adminType === t ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>{t}</button>
+              <button key={t} onClick={() => setAdminType(t)} className={`px-8 py-2 rounded-lg text-sm font-black transition-all ${adminType === t ? 'bg-white text-blue-700 shadow-md' : 'text-slate-600 hover:text-slate-800'}`}>{t}</button>
             ))}
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto w-full px-4 mt-8 flex flex-col md:flex-row justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <input type="text" placeholder="搜尋..." className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-300 rounded-2xl text-sm focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={filterText} onChange={e => setFilterText(e.target.value)} />
+        <div className="relative flex-1 max-w-sm">
+          <input type="text" placeholder="搜尋姓名、手機、公司..." className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-300 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 outline-none transition-all" value={filterText} onChange={e => setFilterText(e.target.value)} />
           <svg className="w-5 h-5 text-slate-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+           <button onClick={() => setIsOrgManaging(true)} className="px-6 py-3.5 bg-indigo-600 text-white font-black text-sm rounded-2xl hover:bg-indigo-700 shadow-lg flex items-center">
+             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+             組織圖與幹部管理
+           </button>
            <button onClick={() => setIsBatchImporting(true)} className="px-6 py-3.5 bg-green-600 text-white font-black text-sm rounded-2xl hover:bg-green-700 shadow-lg flex items-center">
              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-             匯入 Excel
+             Excel 匯入
            </button>
            <button onClick={() => setIsPhotoSyncing(true)} className="px-6 py-3.5 bg-blue-600 text-white font-black text-sm rounded-2xl hover:bg-blue-700 shadow-lg flex items-center">
              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
              同步照片
            </button>
-           <button onClick={() => setIsCreating(true)} className="px-6 py-3.5 bg-slate-900 text-white font-black text-sm rounded-2xl hover:bg-black shadow-lg">單筆新增</button>
+           <button onClick={() => setIsCreating(true)} className="px-6 py-3.5 bg-slate-900 text-white font-black text-sm rounded-2xl hover:bg-black shadow-lg">手動新增</button>
         </div>
       </div>
 
@@ -121,31 +141,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-500 uppercase">會員資訊</th>
-                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-500 uppercase">現職 / 類型</th>
-                <th className="px-8 py-5 text-right text-[11px] font-black text-slate-500 uppercase">操作</th>
+                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-800 uppercase tracking-widest">會員姓名與聯繫方式</th>
+                <th className="px-8 py-5 text-left text-[11px] font-black text-slate-800 uppercase tracking-widest">分會職稱 / 現職商號</th>
+                <th className="px-8 py-5 text-right text-[11px] font-black text-slate-800 uppercase tracking-widest">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
-              {visibleMembers.map(member => (
-                <tr key={member.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-8 py-5 flex items-center">
-                    <img className="h-10 w-10 rounded-xl object-cover border border-slate-200" src={member.avatarUrl || 'https://via.placeholder.com/100'} alt="" />
-                    <div className="ml-4">
-                      <div className="text-sm font-black text-slate-900">{member.name}</div>
-                      <div className="text-[10px] font-bold text-slate-400 mt-0.5">{member.mobile}</div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <div className="text-xs font-bold text-slate-700">{member.company || '未填寫'}</div>
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${member.type === MemberType.YB ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{member.type}</span>
-                  </td>
-                  <td className="px-8 py-5 text-right space-x-2">
-                    <button onClick={() => setEditingMember(member)} className="text-xs font-black text-blue-600 hover:underline">編輯</button>
-                    <button onClick={() => { if(confirm('確定刪除？')) onDeleteMember(member.id); }} className="text-xs font-black text-red-500 hover:underline">刪除</button>
-                  </td>
+              {visibleMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-8 py-20 text-center text-slate-500 font-bold italic">目前此分類下沒有會員資料</td>
                 </tr>
-              ))}
+              ) : (
+                visibleMembers.map(member => (
+                  <tr key={member.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-8 py-5 flex items-center">
+                      <img className="h-10 w-10 rounded-xl object-cover border border-slate-200 shadow-sm" src={member.avatarUrl || 'https://via.placeholder.com/100'} alt="" />
+                      <div className="ml-4">
+                        <div className="text-sm font-black text-slate-900">{member.name}</div>
+                        <div className="text-[10px] font-black text-slate-500 mt-0.5">{member.mobile}</div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${member.currentRole ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                          {member.currentRole?.roleName || '一般會員'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-black text-slate-600 truncate max-w-[250px]">{member.company || '未填寫現職'}</div>
+                    </td>
+                    <td className="px-8 py-5 text-right space-x-2">
+                      <button onClick={() => setEditingMember(member)} className="text-xs font-black text-blue-700 hover:text-blue-900 underline underline-offset-4 decoration-blue-200">編輯</button>
+                      <button onClick={() => { if(confirm('確定刪除？')) onDeleteMember(member.id); }} className="text-xs font-black text-red-600 hover:text-red-800 underline underline-offset-4 decoration-red-200">刪除</button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -164,18 +194,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       {isBatchImporting && (
-        <BatchImportModal 
-          chapter={adminChapter}
-          onImport={handleBatchImport}
-          onClose={() => setIsBatchImporting(false)}
-        />
+        <BatchImportModal chapter={adminChapter} onImport={handleBatchImport} onClose={() => setIsBatchImporting(false)} />
       )}
 
       {isPhotoSyncing && (
-        <BulkPhotoSync 
+        <BulkPhotoSync members={members} onUpdateMembers={handleBulkPhotoUpdate} onClose={() => setIsPhotoSyncing(false)} />
+      )}
+
+      {isOrgManaging && (
+        <OrganizationManager 
+          chapter={adminChapter}
           members={members}
-          onUpdateMembers={handleBulkPhotoUpdate}
-          onClose={() => setIsPhotoSyncing(false)}
+          onUpdateMembers={onUpdateAllMembers}
+          onClose={() => setIsOrgManaging(false)}
         />
       )}
     </div>
