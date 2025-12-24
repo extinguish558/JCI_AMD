@@ -1,238 +1,192 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import React, { useState, useRef } from 'react';
 import { Member, Chapter, MemberType } from '../types';
+import * as XLSX from 'xlsx';
 
 interface BatchImportModalProps {
   chapter: Chapter;
-  memberType: MemberType;
   onImport: (members: Member[]) => void;
   onClose: () => void;
 }
 
-const BatchImportModal: React.FC<BatchImportModalProps> = ({ chapter, memberType, onImport, onClose }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+const BatchImportModal: React.FC<BatchImportModalProps> = ({ chapter, onImport, onClose }) => {
+  const [previewData, setPreviewData] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [results, setResults] = useState<Partial<Member>[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setFile(selected);
-      const url = URL.createObjectURL(selected);
-      setPreviewUrl(url);
+  const calculateMemberType = (birthday?: string): MemberType => {
+    if (!birthday) return MemberType.YB;
+    try {
+      const birthDate = new Date(birthday);
+      if (isNaN(birthDate.getTime())) return MemberType.YB;
+      
+      const currentYear = new Date().getFullYear();
+      const birthYear = birthDate.getFullYear();
+      
+      // JCI 規範：滿 40 歲後之隔年轉為特友會，或是當年滿 40 歲為最後一年 YB
+      return (currentYear - birthYear > 40) ? MemberType.SENIOR : MemberType.YB;
+    } catch {
+      return MemberType.YB;
     }
   };
 
-  const processFile = async () => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    
-    // 檢查 API KEY 是否存在
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      alert('錯誤：找不到 API_KEY。\n\n請檢查 Vercel 環境變數名稱是否「完全符合」大寫的 API_KEY，而非 CLIENT_KEY_。');
-      return;
-    }
 
     setIsProcessing(true);
+    setError(null);
 
-    try {
-      const reader = new FileReader();
-      const base64DataPromise = new Promise<string>((resolve) => {
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.readAsDataURL(file);
-      });
-
-      const base64Data = await base64DataPromise;
-      const ai = new GoogleGenAI({ apiKey });
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3-pro-preview", 
-        contents: {
-          parts: [
-            { inlineData: { data: base64Data, mimeType: file.type } },
-            { text: `你是一位專業的名錄資料轉換專家。請從這份檔案中提取所有會員資訊。
-            請根據系統要求的以下欄位精準填寫並返回繁體中文 JSON 陣列：
-            
-            1. name: 姓名
-            2. title: 最高職稱
-            3. company: 公司名稱
-            4. mobile: 手機號碼 (09xx-xxxxxx)
-            5. lineId: LINE ID
-            6. joinDate: 入會日期 (YYYY-MM-DD)
-            7. birthday: 會員生日 (YYYY-MM-DD)
-            8. companyAddress: 公司地址
-            9. spouseName: 配偶姓名
-            10. senatorId: 參議會編號
-            
-            請為每一位會員建立一個物件。只返回純 JSON 陣列，不要包含 Markdown 標記 (如 \`\`\`json)。` }
-          ]
-        },
-        config: {
-          responseMimeType: "application/json",
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        if (data.length === 0) {
+          throw new Error("Excel 檔案內沒有資料");
         }
-      });
-
-      // 清理可能出現的 Markdown 或額外字元
-      let jsonText = response.text || '[]';
-      jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      const extracted = JSON.parse(jsonText);
-      setResults(Array.isArray(extracted) ? extracted : []);
-      
-    } catch (err: any) {
-      console.error("AI 辨識錯誤:", err);
-      const errorMsg = err?.message || '';
-      if (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('403')) {
-        alert('API 金鑰無效，請檢查金鑰內容是否複製正確。');
-      } else {
-        alert('辨識失敗。\n\n請確認：\n1. Vercel 變數名稱是 API_KEY。\n2. 檔案是否小於 20MB。\n3. 是否已點擊 Redeploy 讓變數生效。');
+        setPreviewData(data);
+      } catch (err: any) {
+        setError(err.message || "解析 Excel 失敗，請確保格式正確");
+      } finally {
+        setIsProcessing(false);
       }
-    } finally {
-      setIsProcessing(false);
-    }
+    };
+    reader.readAsBinaryString(file);
   };
 
-  const handleSaveAll = () => {
-    const finalMembers: Member[] = results.map(r => ({
-      ...r,
-      id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      chapter,
-      type: memberType,
-      name: r.name || '未命名',
-      joinDate: r.joinDate || new Date().toISOString().split('T')[0],
-    } as Member));
-    onImport(finalMembers);
-    onClose();
+  const handleConfirmImport = () => {
+    try {
+      const finalMembers: Member[] = previewData.map((item: any, idx: number) => {
+        // 欄位映射邏輯 (根據您的 Excel 截圖優化)
+        const name = item['姓名'] || item['name'] || '';
+        if (!name) return null;
+
+        const birthday = item['生日'] || item['birthday'] || '';
+        const memberType = calculateMemberType(birthday);
+
+        return {
+          id: `imp-${Date.now()}-${idx}`,
+          name: name,
+          englishName: item['英文名'] || item['englishName'] || '',
+          chapter: chapter,
+          type: memberType,
+          company: item['現職'] || item['公司'] || item['company'] || '',
+          title: item['職稱'] || item['title'] || '',
+          joinDate: item['入會日期'] || item['joinDate'] || new Date().toISOString().split('T')[0],
+          birthday: birthday,
+          mobile: item['行動電話'] || item['mobile'] || '',
+          companyPhone: item['公司電話'] || item['companyPhone'] || '',
+          email: item['電子信箱'] || item['email'] || '',
+          address: item['地址'] || item['address'] || '',
+        } as Member;
+      }).filter(Boolean) as Member[];
+
+      onImport(finalMembers);
+      alert(`✅ 成功匯入 ${finalMembers.length} 筆資料！系統已根據年齡自動分類 YB 與 特友會。`);
+      onClose();
+    } catch (err: any) {
+      setError("資料轉換失敗：" + err.message);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/95 backdrop-blur-md p-4">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col overflow-hidden border border-slate-200">
-        <div className="bg-slate-900 px-8 py-6 flex justify-between items-center text-white">
+      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-white/20">
+        
+        <div className="bg-slate-900 px-10 py-8 flex justify-between items-center text-white">
           <div className="flex items-center">
-            <div className="bg-blue-600 p-3 rounded-2xl mr-4">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <div className="bg-green-600 p-4 rounded-2xl mr-5 shadow-lg">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m3.222.882a.5.5 0 01.222.418V19a2 2 0 002 2h10a2 2 0 002-2v-1.118a.5.5 0 01.222-.418L17.5 17.5" /></svg>
             </div>
             <div>
-              <h2 className="font-black text-2xl">批量 AI 解析填寫</h2>
-              <p className="text-slate-400 text-xs mt-1 font-bold tracking-widest uppercase">High Performance Mode</p>
+              <h2 className="font-black text-3xl tracking-tighter">Excel 智慧匯入系統</h2>
+              <p className="text-slate-400 text-sm mt-1 font-bold uppercase tracking-[0.2em]">Target: {chapter} · Auto YB/OB Detection</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-3 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">✕</button>
+          <button onClick={onClose} className="p-4 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-all">✕</button>
         </div>
 
-        <div className="flex-1 flex overflow-hidden bg-slate-50">
-          <div className="w-1/2 p-6 border-r border-slate-200 flex flex-col">
-            <h3 className="text-[10px] font-black text-slate-400 mb-4 tracking-widest uppercase">Source Preview</h3>
-            <div className="flex-1 bg-slate-200 rounded-3xl overflow-hidden border-2 border-slate-200 relative shadow-inner">
-              {file ? (
-                file.type === 'application/pdf' ? (
-                  <iframe src={previewUrl!} className="w-full h-full border-none" title="PDF Preview" />
-                ) : (
-                  <div className="w-full h-full p-4 flex items-center justify-center overflow-auto">
-                    <img src={previewUrl!} className="max-w-full h-auto shadow-2xl rounded-lg" alt="Preview" />
-                  </div>
-                )
-              ) : (
-                <div onClick={() => fileInputRef.current?.click()} className="h-full flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors group">
-                  <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
-                    <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  </div>
-                  <p className="font-black text-slate-600 text-lg">點擊上傳名錄檔案</p>
-                  <p className="text-[10px] text-slate-400 mt-2 font-black uppercase tracking-widest">Supports PDF / JPG / PNG</p>
-                </div>
-              )}
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*,application/pdf" onChange={handleFileChange} />
+        <div className="flex-1 p-10 overflow-y-auto bg-slate-50 flex flex-col gap-6">
+          {previewData.length === 0 ? (
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 flex flex-col items-center justify-center border-4 border-dashed border-slate-200 rounded-[3rem] bg-white cursor-pointer hover:border-blue-500 hover:bg-blue-50/30 transition-all group"
+            >
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls, .csv" className="hidden" />
+              <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              </div>
+              <h3 className="text-2xl font-black text-slate-800">選取 Excel 檔案 (.xlsx)</h3>
+              <p className="text-slate-400 font-bold mt-2">系統將自動解析欄位，並根據生日判斷 YB 或 OB</p>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col h-full">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="font-black text-slate-700">數據預覽 ({previewData.length} 筆)</h4>
+                <button onClick={() => setPreviewData([])} className="text-xs font-black text-red-500 hover:underline">更換檔案</button>
+              </div>
+              <div className="flex-1 overflow-auto rounded-2xl border border-slate-200 bg-white shadow-inner">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase">姓名</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase">現職</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase">生日</th>
+                      <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase">預計分類</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {previewData.slice(0, 50).map((row, idx) => {
+                      const bday = row['生日'] || row['birthday'];
+                      const type = calculateMemberType(bday);
+                      return (
+                        <tr key={idx} className="text-xs">
+                          <td className="px-4 py-3 font-bold text-slate-900">{row['姓名'] || row['name']}</td>
+                          <td className="px-4 py-3 text-slate-500 truncate max-w-[200px]">{row['現職'] || row['company']}</td>
+                          <td className="px-4 py-3 text-slate-500">{bday || '未填寫'}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-md font-black text-[10px] ${type === MemberType.YB ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                              {type}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {previewData.length > 50 && <div className="p-4 text-center text-[10px] font-bold text-slate-400">... 及其他 {previewData.length - 50} 筆</div>}
+              </div>
+            </div>
+          )}
 
-          <div className="w-1/2 p-6 overflow-y-auto bg-white">
-            <h3 className="text-[10px] font-black text-slate-400 mb-4 tracking-widest uppercase">AI Extraction Result</h3>
-            
-            {isProcessing ? (
-              <div className="py-32 flex flex-col items-center">
-                <div className="relative mb-8">
-                  <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-600/20 border-t-blue-600"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-ping"></div>
-                  </div>
-                </div>
-                <h4 className="text-2xl font-black text-slate-800 tracking-tight">AI 正在深度掃描名錄...</h4>
-                <p className="text-slate-500 font-bold mt-3 text-sm">正自動匹配姓名、手機與公司資訊</p>
-              </div>
-            ) : results.length > 0 ? (
-              <div className="space-y-4">
-                {results.map((res, idx) => (
-                  <div key={idx} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/5 transition-all group">
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-3 shadow-sm text-slate-400 font-black text-xs border border-slate-100">{idx + 1}</div>
-                        <span className="text-xl font-black text-slate-900">{res.name}</span>
-                      </div>
-                      {res.mobile && <span className="text-[10px] font-black bg-blue-600 text-white px-3 py-1.5 rounded-full shadow-lg shadow-blue-500/20">READY</span>}
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 text-sm">
-                      <div className="flex bg-white/50 p-3 rounded-xl border border-slate-100">
-                        <span className="w-20 text-slate-400 font-black text-[10px] uppercase pt-1">Company</span> 
-                        <span className="text-slate-700 font-bold">{res.company || '未知公司'} {res.title}</span>
-                      </div>
-                      <div className="flex bg-white/50 p-3 rounded-xl border border-slate-100">
-                        <span className="w-20 text-slate-400 font-black text-[10px] uppercase pt-1">Mobile</span> 
-                        <span className="text-blue-600 font-black tracking-wider">{res.mobile || '未偵測到手機'}</span>
-                      </div>
-                      {res.spouseName && (
-                        <div className="flex bg-pink-50 p-3 rounded-xl border border-pink-100">
-                          <span className="w-20 text-pink-400 font-black text-[10px] uppercase pt-1">Family</span> 
-                          <span className="text-pink-600 font-black">配偶：{res.spouseName}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-40 text-center">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <svg className="w-10 h-10 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
-                </div>
-                <p className="font-black text-slate-300 text-lg">等待處理檔案中...</p>
-              </div>
-            )}
-          </div>
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-xs font-black animate-shake flex items-center">
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+              {error}
+            </div>
+          )}
         </div>
 
-        <div className="bg-white px-8 py-6 border-t border-slate-200 flex justify-between items-center">
-          <div className="flex space-x-8">
-             <div className="flex flex-col">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Association</span>
-               <span className="text-sm font-black text-slate-900">{chapter}</span>
-             </div>
-             <div className="flex flex-col">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Group</span>
-               <span className="text-sm font-black text-slate-900">{memberType}</span>
-             </div>
+        <div className="bg-white px-10 py-8 border-t border-slate-100 flex justify-between items-center">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selected Chapter</span>
+            <span className="text-slate-900 font-black text-lg">{chapter}</span>
           </div>
           <div className="flex space-x-4">
-            <button onClick={onClose} className="px-8 py-3 text-slate-500 font-black text-sm hover:text-slate-800 transition-colors">取消</button>
-            {file && results.length === 0 && !isProcessing && (
-              <button onClick={processFile} className="px-12 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 hover:scale-105 transition-all active:scale-95">執行 AI 智慧辨識</button>
-            )}
-            {results.length > 0 && (
-              <button onClick={handleSaveAll} className="px-12 py-4 bg-slate-900 text-white rounded-2xl font-black shadow-2xl hover:bg-black hover:scale-105 transition-all active:scale-95">確定匯入 {results.length} 筆資料</button>
-            )}
+            <button onClick={onClose} className="px-8 py-4 text-slate-500 font-black text-sm hover:text-slate-900 transition-colors">取消動作</button>
+            <button 
+              onClick={handleConfirmImport}
+              disabled={isProcessing || previewData.length === 0}
+              className="px-16 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-2xl transition-all active:scale-95 disabled:opacity-30 hover:bg-black"
+            >
+              {isProcessing ? '處理中...' : `確認匯入 ${previewData.length} 位會員`}
+            </button>
           </div>
         </div>
       </div>

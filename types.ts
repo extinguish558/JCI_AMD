@@ -11,36 +11,35 @@ export enum SeniorTitleType {
 
 export type Chapter = '嘉義分會' | '南投分會';
 
-// Current Year Role Definition
 export interface CurrentRole {
   roleName: string;
-  rankInRole: number; // 10: President, 20: VP, 30: Director, 40: Supervisor, 50: Chair, 60: Committee
+  rankInRole: number; 
 }
 
-// Senior History Definition
 export interface SeniorHistory {
   type: SeniorTitleType;
-  termNo?: number; // For Presidents
-  year?: number;   // For Chairs
+  termNo?: number; 
+  year?: number;   
 }
 
 export interface Member {
   id: string;
   name: string;
-  chapter: Chapter; // New Field: Association Chapter
+  englishName?: string; // 新增：英文姓名
+  chapter: Chapter; 
   avatarUrl?: string;
   
   // A. Basic Data
-  title?: string; // 最高職稱 (Occupation/Title)
-  joinDate: string; // ISO Date string YYYY-MM-DD
-  birthday?: string; // YYYY-MM-DD or MM-DD
+  title?: string; 
+  joinDate: string; 
+  birthday?: string; 
   gender?: '男' | '女';
   mobile?: string;
   phone?: string;
   email?: string;
   address?: string;
   fax?: string;
-  lineId?: string; // 新增：LINE ID
+  lineId?: string; 
 
   // B. Company Data
   company?: string;
@@ -55,22 +54,18 @@ export interface Member {
 
   // D. Identity & Classification
   type: MemberType;
-  senatorId?: string; // 參議會編號
+  senatorId?: string; 
   
   // E. Media
   businessCardUrl?: string;
 
-  // Optional: If they hold a current office
   currentRole?: CurrentRole;
-  
-  // Optional: If they held senior positions (sorted list of past titles)
   seniorHistory?: SeniorHistory[];
 }
 
-// Auth Types
 export interface AuthUser {
   username: string;
   name: string;
   role: 'SUPER_ADMIN' | 'CHAPTER_ADMIN';
-  managedChapter?: Chapter; // If undefined, can manage all
+  managedChapter?: Chapter; 
 }
