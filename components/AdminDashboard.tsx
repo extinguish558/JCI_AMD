@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Member, AuthUser, Chapter, MemberType } from '../types';
 import MemberEditor from './MemberEditor';
 import BatchImportModal from './BatchImportModal';
+import { isFirebaseReady } from '../lib/firebase';
 
 interface AdminDashboardProps {
   user: AuthUser;
@@ -64,6 +65,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             </div>
             <h1 className="font-bold text-lg hidden sm:block tracking-tight">後台管理：{user.name}</h1>
+            <div className={`ml-6 flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isFirebaseReady ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
+               <span className={`h-1.5 w-1.5 rounded-full mr-2 ${isFirebaseReady ? 'bg-green-400 animate-pulse' : 'bg-slate-500'}`}></span>
+               {isFirebaseReady ? 'Cloud Synced' : 'Offline Mode'}
+            </div>
           </div>
           <button onClick={onLogout} className="text-sm bg-slate-800 hover:bg-red-600 px-5 py-2 rounded-xl border border-slate-700 transition-all font-bold">登出系統</button>
         </div>
