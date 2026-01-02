@@ -1,8 +1,7 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
-// 已填入您的 Firebase 配置資訊
 const firebaseConfig = {
   apiKey: "AIzaSyCIAuCwFokHnoDoBFggfMB-lS94MfBNX5o",
   authDomain: "jci-member-system.firebaseapp.com",
@@ -13,9 +12,20 @@ const firebaseConfig = {
   measurementId: "G-D81X2B3D6W"
 };
 
-// 確保配置已正確填寫
 const isConfigured = firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("您的");
 
 const app = isConfigured ? initializeApp(firebaseConfig) : null;
-export const db = app ? getFirestore(app) : null;
+
+/**
+ * 針對「連線經常斷開」的深度優化方案：
+ * 1. experimentalForceLongPolling: 解決 WebSocket 被防火牆封鎖的問題。
+ * 2. persistentMultipleTabManager: 解決多個分頁同時開啟導致的資料鎖定問題。
+ */
+export const db = app ? initializeFirestore(app, {
+  localCache: persistentLocalCache({ 
+    tabManager: persistentMultipleTabManager() 
+  }),
+  experimentalForceLongPolling: true, // 強制使用長輪詢，穩定性大幅提升
+}) : null;
+
 export const isFirebaseReady = !!db;
