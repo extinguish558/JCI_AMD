@@ -4,6 +4,15 @@ export enum MemberType {
   SENIOR = '特友會',
 }
 
+export enum MembershipStatus {
+  ACTIVE = '會友',
+  ON_LEAVE = '休會',
+  RESIGNED = '退會',
+  REINSTATED = '覆會',
+  PROBATION_FAILED = '見習未通過',
+  NOT_JOINING = '不入會',
+}
+
 export enum SeniorTitleType {
   PRESIDENT = 'PRESIDENT',
   CHAIR = 'CHAIR',
@@ -22,25 +31,24 @@ export interface SeniorHistory {
   year?: number;   
 }
 
-// 組織區塊定義 (對應 PDF 佈局)
-export type OrgSection = 'MAIN_AXIS' | 'LEFT_ADVISORS' | 'LEFT_SUPERVISORS' | 'RIGHT_ADMIN' | 'RIGHT_TEAMS';
+export interface AuditInfo {
+  isVerified: boolean;
+  verifiedBy: string;
+  verifiedAt: string;
+  signatureBase64?: string;
+}
 
-export interface OrgRole {
-  id: string;
-  section: OrgSection;
-  mainTitle: string; // 格子主標題 (例如：秘書處)
-  mainMemberIds: string[]; // 正職人員 IDs
-  
-  hasDeputy: boolean; // 是否有副手設定
-  deputyTitle?: string; // 副職稱 (例如：副秘書長)
-  deputyMemberIds?: string[]; // 副職人員 IDs
-  
-  rank: number; // 同區塊排序
-  parentId?: string; // 用於建立隸屬關係 (如：副會長 -> 理事 -> 主委)
+export interface StatusLog {
+  fromStatus: MembershipStatus;
+  toStatus: MembershipStatus;
+  changedAt: string;
+  changedBy: string;
+  reason?: string;
 }
 
 export interface Member {
   id: string;
+  memberCode?: string; 
   name: string;
   englishName?: string;
   chapter: Chapter; 
@@ -52,6 +60,8 @@ export interface Member {
   gender?: '男' | '女';
   mobile?: string;
   phone?: string;
+  homePhone?: string; 
+  fax?: string; 
   email?: string;
   address?: string;
   lineId?: string; 
@@ -61,11 +71,21 @@ export interface Member {
   spouseName?: string;
   spouseBirthday?: string;
   type: MemberType;
+  status?: MembershipStatus;
+  statusLog?: StatusLog[];
   senatorId?: string; 
   remark?: string; 
   businessCardUrl?: string;
+  adImageUrl?: string;
+  adImageUrl2?: string;
   currentRole?: CurrentRole;
   seniorHistory?: SeniorHistory[];
+  auditInfo?: AuditInfo;
+  // 新增青商履歷欄位
+  jciExperienceLocal?: string;      // 本會經歷
+  jciExperienceNational?: string;   // 總會/區會經歷
+  awards?: string;                   // 得獎紀錄
+  trainingRecords?: string;          // 訓練紀錄
 }
 
 export interface AuthUser {
@@ -73,4 +93,17 @@ export interface AuthUser {
   name: string;
   role: 'SUPER_ADMIN' | 'CHAPTER_ADMIN';
   managedChapter?: Chapter; 
+}
+
+export type OrgSection = 'MAIN_AXIS' | 'LEFT_ADVISORS' | 'LEFT_SUPERVISORS' | 'RIGHT_ADMIN' | 'RIGHT_TEAMS';
+
+export interface OrgRole {
+  id: string;
+  section: OrgSection;
+  mainTitle: string;
+  mainMemberIds: string[];
+  hasDeputy: boolean;
+  deputyTitle?: string;
+  deputyMemberIds?: string[];
+  rank: number;
 }
