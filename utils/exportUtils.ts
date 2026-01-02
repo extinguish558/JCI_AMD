@@ -4,7 +4,7 @@ import { Member } from '../types';
 export const exportToCSV = (members: Partial<Member>[], filename: string) => {
   const headers = [
     'ID', '姓名', '英文名', '分會', '類型', '最高職稱', '入會日期', '生日', '性別', 
-    '手機', '電話', 'Email', '地址', 'LINE_ID', 
+    '手機', '電話', '住宅電話', '傳真', 'Email', '地址', 'LINE_ID', 
     '公司名稱', '公司電話', '公司地址', '配偶姓名', '參議會編號'
   ];
   
@@ -20,6 +20,8 @@ export const exportToCSV = (members: Partial<Member>[], filename: string) => {
     m.gender || '',
     m.mobile || '',
     m.phone || '',
+    m.homePhone || '',
+    m.fax || '',
     m.email || '',
     m.address || '',
     m.lineId || '',
