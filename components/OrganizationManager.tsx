@@ -11,48 +11,76 @@ interface OrganizationManagerProps {
 }
 
 const OrganizationManager: React.FC<OrganizationManagerProps> = ({ chapter, members, onUpdateMembers, onClose }) => {
-  const [view, setView] = useState<'EDITOR' | 'CHART'>('EDITOR');
+  const [view, setView] = useState<'MAP' | 'PREVIEW'>('MAP');
+  
+  // 完整 PDF 職務內容初始化
   const [roles, setRoles] = useState<OrgRole[]>([
+    // 中央主軸
     { id: 'm1', section: 'MAIN_AXIS', mainTitle: '個人會員', mainMemberIds: [], hasDeputy: false, rank: 1 },
     { id: 'm2', section: 'MAIN_AXIS', mainTitle: '會員大會', mainMemberIds: [], hasDeputy: false, rank: 2 },
     { id: 'm3', section: 'MAIN_AXIS', mainTitle: '理事會', mainMemberIds: [], hasDeputy: false, rank: 3 },
     { id: 'm4', section: 'MAIN_AXIS', mainTitle: '常務理事會', mainMemberIds: [], hasDeputy: false, rank: 4 },
     { id: 'm5', section: 'MAIN_AXIS', mainTitle: '會長', mainMemberIds: [], hasDeputy: false, rank: 5 },
-    
-    { id: 'a1', section: 'LEFT_ADVISORS', mainTitle: '歷屆前會長', mainMemberIds: [], hasDeputy: false, rank: 10 },
-    { id: 'a2', section: 'LEFT_ADVISORS', mainTitle: '榮譽顧問', mainMemberIds: [], hasDeputy: false, rank: 11 },
-    
-    { id: 's1', section: 'LEFT_SUPERVISORS', mainTitle: '常務監事', mainMemberIds: [], hasDeputy: false, rank: 20 },
-    { id: 's2', section: 'LEFT_SUPERVISORS', mainTitle: '監事', mainMemberIds: [], hasDeputy: false, rank: 21 },
-    
-    { id: 'e1', section: 'RIGHT_ADMIN', mainTitle: '秘書長', mainMemberIds: [], hasDeputy: true, deputyTitle: '副秘書長', deputyMemberIds: [], rank: 30 },
-    { id: 'e2', section: 'RIGHT_ADMIN', mainTitle: '財務長', mainMemberIds: [], hasDeputy: true, deputyTitle: '副財務長', deputyMemberIds: [], rank: 31 },
-    
-    { id: 'c1', section: 'RIGHT_TEAMS', mainTitle: '數位發展主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 100 },
-    { id: 'c2', section: 'RIGHT_TEAMS', mainTitle: '運動休閒主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 101 },
+
+    // 左側：顧問團
+    { id: 'la1', section: 'LEFT_ADVISORS', mainTitle: '歷屆前會長', mainMemberIds: [], hasDeputy: false, rank: 10 },
+    { id: 'la2', section: 'LEFT_ADVISORS', mainTitle: '榮譽顧問', mainMemberIds: [], hasDeputy: false, rank: 11 },
+    { id: 'la3', section: 'LEFT_ADVISORS', mainTitle: '榮譽會員', mainMemberIds: [], hasDeputy: false, rank: 12 },
+
+    // 左側：監事會
+    { id: 'ls1', section: 'LEFT_SUPERVISORS', mainTitle: '常務監事', mainMemberIds: [], hasDeputy: false, rank: 20 },
+    { id: 'ls2', section: 'LEFT_SUPERVISORS', mainTitle: '監事', mainMemberIds: [], hasDeputy: false, rank: 21 },
+    { id: 'ls3', section: 'LEFT_SUPERVISORS', mainTitle: '監事', mainMemberIds: [], hasDeputy: false, rank: 22 },
+    { id: 'ls4', section: 'LEFT_SUPERVISORS', mainTitle: '候補監事', mainMemberIds: [], hasDeputy: false, rank: 23 },
+
+    // 右側：行政核心組 (對照 PDF 頂部區塊)
+    { id: 'ra1', section: 'RIGHT_ADMIN', mainTitle: '金龍聯誼會', mainMemberIds: [], hasDeputy: false, rank: 30 },
+    { id: 'ra2', section: 'RIGHT_ADMIN', mainTitle: '參議員聯誼會', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主席', deputyMemberIds: [], rank: 31 },
+    { id: 'ra3', section: 'RIGHT_ADMIN', mainTitle: '行政特別助理', mainMemberIds: [], hasDeputy: false, rank: 32 },
+    { id: 'ra4', section: 'RIGHT_ADMIN', mainTitle: '財務長', mainMemberIds: [], hasDeputy: true, deputyTitle: '副財務長', deputyMemberIds: [], rank: 33 },
+    { id: 'ra5', section: 'RIGHT_ADMIN', mainTitle: '秘書長', mainMemberIds: [], hasDeputy: true, deputyTitle: '副秘書長', deputyMemberIds: [], rank: 34 },
+    { id: 'ra6', section: 'RIGHT_ADMIN', mainTitle: '會章顧問主委', mainMemberIds: [], hasDeputy: false, rank: 35 },
+    { id: 'ra7', section: 'RIGHT_ADMIN', mainTitle: '會員擴展主委', mainMemberIds: [], hasDeputy: false, rank: 36 },
+    { id: 'ra8', section: 'RIGHT_ADMIN', mainTitle: '長期發展主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 37 },
+    { id: 'ra9', section: 'RIGHT_ADMIN', mainTitle: '特友聯誼會', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主席', deputyMemberIds: [], rank: 38 },
+    { id: 'ra10', section: 'RIGHT_ADMIN', mainTitle: '會館基金主委', mainMemberIds: [], hasDeputy: false, rank: 39 },
+    { id: 'ra11', section: 'RIGHT_ADMIN', mainTitle: '國際基金主委', mainMemberIds: [], hasDeputy: false, rank: 40 },
+    { id: 'ra12', section: 'RIGHT_ADMIN', mainTitle: '法制顧問', mainMemberIds: [], hasDeputy: false, rank: 41 },
+    { id: 'ra13', section: 'RIGHT_ADMIN', mainTitle: '訓練委員會主委', mainMemberIds: [], hasDeputy: false, rank: 42 },
+    { id: 'ra14', section: 'RIGHT_ADMIN', mainTitle: '直前會長', mainMemberIds: [], hasDeputy: false, rank: 43 },
+
+    // 會務副會長體系 (RT1)
+    { id: 'rt1', section: 'RIGHT_TEAMS', mainTitle: '會務副會長', mainMemberIds: [], hasDeputy: false, rank: 100 },
+    { id: 'rt1-1', section: 'RIGHT_TEAMS', mainTitle: '理事', mainMemberIds: [], hasDeputy: false, rank: 101 },
+    { id: 'rt1-2', section: 'RIGHT_TEAMS', mainTitle: '理事', mainMemberIds: [], hasDeputy: false, rank: 102 },
+    { id: 'rv1-1', section: 'RIGHT_TEAMS', mainTitle: '數位發展主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 110 },
+    { id: 'rv1-2', section: 'RIGHT_TEAMS', mainTitle: '編輯記錄主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 111 },
+    { id: 'rv1-3', section: 'RIGHT_TEAMS', mainTitle: '才能發展主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 112 },
+    { id: 'rv1-4', section: 'RIGHT_TEAMS', mainTitle: '運動休閒主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 113 },
+    { id: 'rv1-5', section: 'RIGHT_TEAMS', mainTitle: '青商家庭主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 114 },
+    { id: 'rv1-6', section: 'RIGHT_TEAMS', mainTitle: '例行會務主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 115 },
+
+    // 組務副會長體系 (RT2)
+    { id: 'rt2', section: 'RIGHT_TEAMS', mainTitle: '組務副會長', mainMemberIds: [], hasDeputy: false, rank: 200 },
+    { id: 'rt2-1', section: 'RIGHT_TEAMS', mainTitle: '理事', mainMemberIds: [], hasDeputy: false, rank: 201 },
+    { id: 'rt2-2', section: 'RIGHT_TEAMS', mainTitle: '理事', mainMemberIds: [], hasDeputy: false, rank: 202 },
+    { id: 'rv2-1', section: 'RIGHT_TEAMS', mainTitle: '地方創生主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 210 },
+    { id: 'rv2-2', section: 'RIGHT_TEAMS', mainTitle: '公關接待主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 211 },
+    { id: 'rv2-3', section: 'RIGHT_TEAMS', mainTitle: '社區發展主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 212 },
+    { id: 'rv2-4', section: 'RIGHT_TEAMS', mainTitle: '國際事務主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 213 },
+    { id: 'rv2-5', section: 'RIGHT_TEAMS', mainTitle: '特友會聯誼主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 214 },
+    { id: 'rv2-6', section: 'RIGHT_TEAMS', mainTitle: '會員聯誼主委', mainMemberIds: [], hasDeputy: true, deputyTitle: '副主委', deputyMemberIds: [], rank: 215 },
+
+    // 底部專案
+    { id: 'rb1', section: 'RIGHT_TEAMS', mainTitle: '交接典禮總幹事', mainMemberIds: [], hasDeputy: false, rank: 500 },
+    { id: 'rb2', section: 'RIGHT_TEAMS', mainTitle: '忘年會總幹事', mainMemberIds: [], hasDeputy: false, rank: 501 },
   ]);
   
-  const [activeRoleId, setActiveRoleId] = useState<string | null>(null);
+  const [activeRoleId, setActiveRoleId] = useState<string | null>(roles[0].id);
   const [assigningType, setAssigningType] = useState<'MAIN' | 'DEPUTY'>('MAIN');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleAddRole = () => {
-    const newRole: OrgRole = {
-      id: Date.now().toString(),
-      section: 'RIGHT_TEAMS',
-      mainTitle: '新委員會主委',
-      mainMemberIds: [],
-      hasDeputy: true,
-      deputyTitle: '副主委',
-      deputyMemberIds: [],
-      rank: 200
-    };
-    setRoles([...roles, newRole]);
-  };
-
-  const handleUpdateRole = (id: string, updates: Partial<OrgRole>) => {
-    setRoles(roles.map(r => r.id === id ? { ...r, ...updates } : r));
-  };
+  const activeRole = roles.find(r => r.id === activeRoleId);
 
   const toggleMemberInRole = (memberId: string) => {
     if (!activeRoleId) return;
@@ -81,109 +109,95 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ chapter, memb
       return rest as Member;
     });
     await onUpdateMembers(updates);
-    alert('組織資料已同步！');
+    alert('組織職務同步成功！');
+    onClose();
   };
 
-  const activeRole = roles.find(r => r.id === activeRoleId);
-
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/95 backdrop-blur-xl p-4">
-      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/98 backdrop-blur-2xl p-4">
+      <div className="bg-white rounded-[3.5rem] shadow-2xl w-full max-w-[98vw] h-[95vh] flex flex-col overflow-hidden">
         
         {/* Header */}
-        <div className="bg-slate-900 px-10 py-6 flex justify-between items-center text-white shrink-0">
-          <div className="flex items-center space-x-4">
-            <div className="bg-indigo-600 p-3 rounded-2xl">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-            </div>
+        <div className="bg-slate-900 px-10 py-5 flex justify-between items-center text-white shrink-0 border-b border-slate-800">
+          <div className="flex items-center space-x-6">
             <h2 className="font-black text-2xl tracking-tighter">115 年度組織架構管理</h2>
+            <div className="bg-blue-600/20 text-blue-400 px-4 py-1 rounded-full text-[10px] font-black tracking-widest border border-blue-500/30">
+              點擊圖表方塊進行人員指派
+            </div>
           </div>
-          <div className="flex bg-slate-800 p-1 rounded-2xl">
-            <button onClick={() => setView('EDITOR')} className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${view === 'EDITOR' ? 'bg-white text-slate-900' : 'text-slate-400'}`}>格子設定</button>
-            <button onClick={() => setView('CHART')} className={`px-6 py-2 rounded-xl text-sm font-black transition-all ${view === 'CHART' ? 'bg-white text-slate-900' : 'text-slate-400'}`}>圖表預覽</button>
+          
+          <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
+            <button onClick={() => setView('MAP')} className={`px-8 py-2 rounded-xl text-xs font-black transition-all ${view === 'MAP' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-400 hover:text-white'}`}>格子設定</button>
+            <button onClick={() => setView('PREVIEW')} className={`px-8 py-2 rounded-xl text-xs font-black transition-all ${view === 'PREVIEW' ? 'bg-white text-slate-900 shadow-xl' : 'text-slate-400 hover:text-white'}`}>圖表預覽</button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-hidden flex">
-          {view === 'EDITOR' ? (
+        <div className="flex-1 flex overflow-hidden">
+          {view === 'MAP' ? (
             <>
-              {/* Left: Role List */}
-              <div className="w-1/2 border-r border-slate-100 p-8 flex flex-col bg-slate-50">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-black text-lg text-slate-800 uppercase tracking-widest">職務格子清單</h3>
-                  <button onClick={handleAddRole} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg hover:scale-105 transition-all">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
-                  {roles.sort((a,b) => a.rank - b.rank).map(role => (
-                    <div 
-                      key={role.id} 
-                      onClick={() => setActiveRoleId(role.id)}
-                      className={`p-4 rounded-3xl border-2 transition-all cursor-pointer bg-white ${activeRoleId === role.id ? 'border-indigo-600 shadow-xl' : 'border-transparent shadow-sm'}`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                         <div className="space-y-1 flex-1">
-                            <div className="flex items-center space-x-2">
-                              <input value={role.mainTitle} onChange={e => handleUpdateRole(role.id, { mainTitle: e.target.value })} className="font-black text-slate-800 bg-transparent border-none p-0 focus:ring-0 text-sm w-full" />
-                              <select value={role.section} onChange={e => handleUpdateRole(role.id, { section: e.target.value as OrgSection })} className="text-[9px] font-black bg-slate-100 rounded px-1.5 py-0.5 outline-none">
-                                <option value="MAIN_AXIS">主軸</option>
-                                <option value="LEFT_ADVISORS">左-顧問</option>
-                                <option value="LEFT_SUPERVISORS">左-監事</option>
-                                <option value="RIGHT_ADMIN">右-行政</option>
-                                <option value="RIGHT_TEAMS">右-功能隊</option>
-                              </select>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                               {role.mainMemberIds.map(id => <span key={id} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 rounded">正:{members.find(m => m.id === id)?.name}</span>)}
-                            </div>
-                         </div>
-                         <button onClick={() => setRoles(roles.filter(r => r.id !== role.id))} className="text-slate-300 hover:text-red-500 transition-colors ml-2">✕</button>
-                      </div>
-                      {role.hasDeputy && (
-                        <div className="mt-3 pt-3 border-t border-dashed border-slate-100">
-                           <input value={role.deputyTitle} onChange={e => handleUpdateRole(role.id, { deputyTitle: e.target.value })} className="text-[11px] font-bold text-slate-400 bg-transparent border-none p-0 focus:ring-0 w-full mb-1" placeholder="副職稱..." />
-                           <div className="flex flex-wrap gap-1">
-                              {role.deputyMemberIds?.map(id => <span key={id} className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 rounded">副:{members.find(m => m.id === id)?.name}</span>)}
-                           </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              {/* Left: Map */}
+              <div className="flex-[3] border-r border-slate-100 overflow-auto bg-slate-50 p-6 scrollbar-hide">
+                <OrgVisualChart 
+                  roles={roles} 
+                  members={members} 
+                  interactive 
+                  activeRoleId={activeRoleId} 
+                  onSelectRole={setActiveRoleId} 
+                />
               </div>
 
-              {/* Right: Member Picker */}
-              <div className="w-1/2 p-8 flex flex-col">
-                <div className="mb-6">
-                  <h3 className="font-black text-lg text-slate-800 mb-2">人員指派中心</h3>
-                  {activeRole ? (
-                    <div className="flex space-x-2">
-                       <button onClick={() => setAssigningType('MAIN')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${assigningType === 'MAIN' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>指派正職 ({activeRole.mainTitle})</button>
-                       {activeRole.hasDeputy && <button onClick={() => setAssigningType('DEPUTY')} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${assigningType === 'DEPUTY' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>指派副手 ({activeRole.deputyTitle})</button>}
-                       <button onClick={() => handleUpdateRole(activeRole.id, { hasDeputy: !activeRole.hasDeputy })} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">切換副手開關</button>
+              {/* Right: Picker */}
+              <div className="flex-[1] flex flex-col bg-white border-l border-slate-100 shadow-2xl z-10">
+                <div className="p-8 bg-slate-900 text-white rounded-bl-[3rem] shadow-xl mb-6">
+                  <span className="text-[10px] font-black text-blue-400 mb-2 block uppercase tracking-widest">目前選中職位</span>
+                  <h3 className="text-2xl font-black mb-6">{activeRole?.mainTitle}</h3>
+                  
+                  {activeRole?.hasDeputy ? (
+                    <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700">
+                      <button onClick={() => setAssigningType('MAIN')} className={`flex-1 py-3 rounded-xl text-[11px] font-black transition-all ${assigningType === 'MAIN' ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-500'}`}>正職人員</button>
+                      <button onClick={() => setAssigningType('DEPUTY')} className={`flex-1 py-3 rounded-xl text-[11px] font-black transition-all ${assigningType === 'DEPUTY' ? 'bg-white text-slate-900 shadow-lg' : 'text-slate-500'}`}>{activeRole.deputyTitle}</button>
                     </div>
-                  ) : <p className="text-slate-400 text-sm font-bold animate-pulse">← 請先點選左側職務格子</p>}
+                  ) : (
+                    <div className="bg-slate-800 px-6 py-3 rounded-2xl text-[11px] font-black text-slate-400 text-center border border-slate-700 italic">
+                      此職位僅有正職設定
+                    </div>
+                  )}
                 </div>
 
-                <div className="relative mb-6">
-                  <input type="text" placeholder="搜尋人員..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-[2rem] text-sm font-bold" />
-                  <svg className="w-5 h-5 absolute left-5 top-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <div className="px-8 pb-4 shrink-0">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="快速搜尋人員..." 
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-sm font-black outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    />
+                    <svg className="w-5 h-5 absolute left-4.5 top-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-2 content-start pr-2 pb-10">
+                <div className="flex-1 overflow-y-auto px-8 py-4 space-y-3 pb-20">
                   {members.filter(m => m.chapter === chapter && m.name.includes(searchTerm)).map(m => {
-                    const isMain = activeRole?.mainMemberIds.includes(m.id);
-                    const isDeputy = activeRole?.deputyMemberIds?.includes(m.id);
+                    const isSelected = assigningType === 'MAIN' ? activeRole?.mainMemberIds.includes(m.id) : activeRole?.deputyMemberIds?.includes(m.id);
                     return (
                       <button 
-                        key={m.id} 
+                        key={m.id}
                         onClick={() => toggleMemberInRole(m.id)}
-                        className={`flex items-center p-3 rounded-2xl border-2 transition-all text-left ${isMain ? 'border-indigo-600 bg-indigo-50' : isDeputy ? 'border-indigo-400 bg-indigo-50/50' : 'border-transparent bg-slate-50 hover:border-slate-200'}`}
+                        className={`w-full flex items-center p-4 rounded-3xl border-2 transition-all group ${isSelected ? 'border-blue-600 bg-blue-50 shadow-lg shadow-blue-500/10' : 'border-slate-50 bg-slate-50 hover:border-slate-300'}`}
                       >
-                        <img src={m.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`} className="w-8 h-8 rounded-lg mr-3 object-cover" />
-                        <span className="text-sm font-black text-slate-800">{m.name}</span>
+                        <div className="relative">
+                          <img src={m.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`} className="w-12 h-12 rounded-2xl mr-4 object-cover border-2 border-white shadow-sm" />
+                          {isSelected && (
+                            <div className="absolute -top-1 -right-1 bg-blue-600 text-white rounded-full p-1 border-2 border-white shadow-md">
+                              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <span className={`text-sm font-black block ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>{m.name}</span>
+                          <span className="text-[10px] font-bold text-slate-400 truncate w-40 block">{m.company || '未填寫現職'}</span>
+                        </div>
                       </button>
                     );
                   })}
@@ -191,16 +205,17 @@ const OrganizationManager: React.FC<OrganizationManagerProps> = ({ chapter, memb
               </div>
             </>
           ) : (
-            <div className="w-full overflow-auto bg-slate-50">
-              <OrgVisualChart roles={roles} members={members} />
+            <div className="w-full overflow-auto bg-white flex justify-center p-12 scrollbar-hide">
+               <OrgVisualChart roles={roles} members={members} />
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="bg-white px-10 py-6 border-t border-slate-100 flex justify-end space-x-4 shrink-0 shadow-inner">
-           <button onClick={onClose} className="px-8 py-3 text-slate-400 font-bold hover:text-slate-900 transition-colors">捨棄變更</button>
-           <button onClick={handleSaveAndSync} className="px-12 py-3 bg-slate-900 text-white rounded-2xl font-black shadow-xl hover:bg-black transition-all">確認並同步組織狀態</button>
+        <div className="bg-white px-10 py-6 border-t border-slate-100 flex justify-end space-x-6 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+           <button onClick={onClose} className="px-10 py-4 text-slate-400 font-black hover:text-slate-900 transition-colors uppercase tracking-widest text-xs">捨棄變更</button>
+           <button onClick={handleSaveAndSync} className="px-16 py-4 bg-slate-900 text-white rounded-[1.5rem] font-black shadow-2xl hover:bg-black transition-all transform active:scale-95 shadow-slate-900/20">
+              確認並同步 115 年度組織狀態
+           </button>
         </div>
       </div>
     </div>
